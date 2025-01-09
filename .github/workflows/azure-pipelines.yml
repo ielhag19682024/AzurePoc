@@ -1,0 +1,62 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+steps:
+# Install Node.js for front-end applications (Angular)
+- task: UseNode@2
+  inputs:
+    version: '18.x'
+    
+# Install dependencies
+- script: |
+    npm install
+    npm run build
+  displayName: 'Install Node.js Dependencies and Build Angular App'
+
+# Build .NET Core application
+- task: VSBuild@1
+  inputs:
+    solution: '$(solution)'
+    msbuildArgs: '/p:Platform="$(buildPlatform)"'
+
+# Run NUnit tests for .NET
+- task: VSTest@2
+  inputs:
+    testSelector: 'testAssemblies'
+    testAssemblyVer2: |
+      **\*test*.dll
+      !**\obj\**
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
+
+# Integrate JUnit test results for Java back-end
+- script: |
+    mvn clean test
+  displayName: 'Run JUnit Tests'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/TEST-*.xml'
+
+# Code quality analysis with SonarQube
+- task: SonarQubePrepare@5
+  inputs:
+    SonarQube: 'SonarQube Service Connection'
+    scannerMode: 'MSBuild'
+    projectKey: 'my-project-key'
+    projectName: 'MyProject'
+    
+- task: SonarQubeAnalyze@5
+
+- task: SonarQubePublish@5
