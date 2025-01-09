@@ -1,0 +1,41 @@
+trigger:
+  branches:
+    include:
+      - main
+
+stages:
+- stage: Deploy
+  jobs:
+  - deployment: IACDeployment
+    displayName: "Deploy Infrastructure with Terraform"
+    environment: "Azure"
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          # Install Terraform CLI
+          - task: UseTerraformCLI@0
+            inputs:
+              terraformVersion: '1.x'
+
+          # Initialize Terraform
+          - script: |
+              terraform init
+            displayName: "Terraform Init"
+
+          # Apply Terraform
+          - script: |
+              terraform apply -auto-approve
+            displayName: "Terraform Apply"
+
+- stage: Validate
+  jobs:
+  - job: Validation
+    steps:
+    # Run PowerShell validation script
+    - powershell: |
+        Invoke-WebRequest http://<WebApp_IP>/api/status
+        if ($LastExitCode -ne 200) {
+            Write-Error "Validation Failed"
+        }
+      displayName: "Validate Web Application Health"
